@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import _ from "lodash";
 
-// ── Demo data generator (simulates the PostgreSQL "ventas" table) ──
+// ── Constantes para los menús desplegables ──
 const SUCURSALES = ["Bernardo Quintana", "Belen", "Centro sur"];
 const EMPLEADOS = ["Ana García", "Carlos López", "María Sánchez", "Pedro Ramírez", "Laura Torres", "Diego Hernández"];
 const PRODUCTOS = ["LENTES SOL", "LENTES GRADUADOS", "ARMAZÓN", "MICA", "ESTUCHE", "SOLUCIÓN", "LENTES CONTACTO", "ACCESORIOS", "BIFOCAL", "PROGRESIVO", "ANTIREFLEJANTE", "FILTRO AZUL", "CADENA", "MICROFIBRA", "GOTAS"];
@@ -11,163 +11,22 @@ const COMENTARIOS_LIST = ["BUEN SERVICIO", "VARIEDAD LIMITADA", "PRECIOS ACCESIB
 const SEXOS = ["H", "M"];
 const RANGOS_EDAD = ["Menor", "18-25", "26-35", "36-50", "51-65", "65+"];
 const PAGOS = ["EFE", "TC"];
-
-import React, { useState, useEffect } from 'react';
-function generateDemoData() {  
-  const MiComponente = () => {
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true);
-  
-    // Esta función reemplaza a generateDemoData()
-    const fetchRealData = async () => {
-      try {
-        const response = await fetch('http://localhost:3001/api/datos');
-        const realData = await response.json();
-        
-        // Mapeamos los datos si los nombres de columnas de SQL son distintos a los de tu objeto JS
-        const formattedData = realData.map(item => ({
-          ...item,
-          // Ejemplo de formateo si es necesario
-          fecha: new Date(item.fecha).toISOString().split("T")[0]
-        }));
-  
-        setData(formattedData);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error cargando datos de Railway:", error);
-        setLoading(false);
-      }
-    };
-  
-    useEffect(() => {
-      fetchRealData();
-    }, []);
-  
-    if (loading) return <div>Cargando datos desde la BD...</div>;
-  
-    return (
-      <div>
-        {/* Aquí va tu lógica de renderizado con 'data' */}
-        <h1>Registros totales: {data.length}</h1>
-      </div>
-    );
-  };
-  
-  export default MiComponente;}
-const ALL_DATA = generateDemoData();
-
 const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-const KPI_OPTIONS = [
-  { value: "monto", label: "Monto ($)" },
-  { value: "ventas", label: "Ventas" },
-  { value: "clientes", label: "Clientes" },
-  { value: "no_ventas", label: "No ventas" },
-];
 
-const PALETTE = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
-const CHART_COLORS = { primary: "#6366f1", secondary: "#f59e0b", success: "#10b981", danger: "#ef4444", info: "#8b5cf6" };
-
-const fmt = (v, isMoney) => isMoney ? `$${Number(v).toLocaleString("es-MX", { minimumFractionDigits: 0 })}` : Number(v).toLocaleString("es-MX");
-
-// ── Custom Tooltip ──
-const ChartTooltip = ({ active, payload, label, isMoney }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: "rgba(15,15,25,0.92)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", backdropFilter: "blur(8px)" }}>
-      <p style={{ color: "#a5b4fc", fontSize: 12, margin: 0, fontWeight: 600 }}>{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color || "#e2e8f0", fontSize: 13, margin: "4px 0 0", fontWeight: 500 }}>
-          {p.name}: {fmt(p.value, isMoney)}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-// ── KPI Card ──
-const KpiCard = ({ icon, label, value, color, sub }) => (
-  <div style={{ background: "linear-gradient(135deg, rgba(30,30,50,0.7), rgba(20,20,40,0.9))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, padding: "20px 22px", flex: "1 1 200px", minWidth: 180, position: "relative", overflow: "hidden" }}>
-    <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: color, opacity: 0.08 }} />
-    <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>
-    <div style={{ fontSize: 26, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.5px", fontFamily: "'DM Sans', sans-serif" }}>{value}</div>
-    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</div>
-    {sub && <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{sub}</div>}
-  </div>
-);
-
-// ── Metric pill ──
-const MetricPill = ({ icon, label, value }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "8px 14px", fontSize: 13, color: "#cbd5e1" }}>
-    <span>{icon}</span>
-    <span style={{ color: "#64748b" }}>{label}:</span>
-    <span style={{ fontWeight: 700, color: "#e2e8f0" }}>{value}</span>
-  </div>
-);
-
-// ── Chart wrapper ──
-const ChartCard = ({ title, children, span = 1 }) => (
-  <div style={{ background: "linear-gradient(145deg, rgba(25,25,45,0.8), rgba(15,15,35,0.95))", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, padding: "20px 22px 16px", gridColumn: `span ${span}`, minWidth: 0 }}>
-    <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#a5b4fc", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "'DM Sans', sans-serif" }}>{title}</h3>
-    {children}
-  </div>
-);
-
-// ── Select / multi-select components ──
-const Select = ({ label, value, onChange, options, style }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 4, ...style }}>
-    {label && <label style={{ fontSize: 11, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</label>}
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#e2e8f0", fontSize: 13, outline: "none", cursor: "pointer", appearance: "auto" }}>
-      {options.map(o => <option key={typeof o === "string" ? o : o.value} value={typeof o === "string" ? o : o.value} style={{ background: "#1e1e30" }}>{typeof o === "string" ? o : o.label}</option>)}
-    </select>
-  </div>
-);
-
-const ToggleChip = ({ label, active, onClick }) => (
-  <button onClick={onClick} style={{ padding: "5px 12px", borderRadius: 20, border: active ? "1px solid #6366f1" : "1px solid rgba(255,255,255,0.1)", background: active ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)", color: active ? "#a5b4fc" : "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", whiteSpace: "nowrap" }}>
-    {label}
-  </button>
-);
-
-const TabButton = ({ label, active, onClick, icon }) => (
-  <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 12, border: "none", background: active ? "rgba(99,102,241,0.15)" : "transparent", color: active ? "#a5b4fc" : "#64748b", fontSize: 14, fontWeight: active ? 700 : 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "'DM Sans', sans-serif" }}>
-    <span>{icon}</span> {label}
-  </button>
-);
-
-// ── Comparison layer manager ──
-const ComparisonManager = ({ layers, onAdd, onRemoveLast, onClearAll, label }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-    <button onClick={onAdd} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.1)", color: "#6ee7b7", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-      + Comparar
-    </button>
-    {layers.length > 0 && (
-      <>
-        {layers.map((l, i) => (
-          <span key={i} style={{ padding: "4px 10px", borderRadius: 14, background: "rgba(99,102,241,0.15)", color: "#a5b4fc", fontSize: 11, fontWeight: 600 }}>{l.name}</span>
-        ))}
-        <button onClick={onRemoveLast} style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: "rgba(245,158,11,0.15)", color: "#fbbf24", fontSize: 11, cursor: "pointer" }}>Quitar última</button>
-        <button onClick={onClearAll} style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: "rgba(239,68,68,0.15)", color: "#f87171", fontSize: 11, cursor: "pointer" }}>Limpiar</button>
-      </>
-    )}
-  </div>
-);
-
-// ═══════════════════════════════════════════
-// MAIN APP
-// ═══════════════════════════════════════════
+// ── AQUÍ EMPIEZA TU DASHBOARD REAL ──
 export default function SalesDashboard() {
-  // 1. Agregamos el estado para los datos de PostgreSQL y la pantalla de carga
+  // 1. Estado para guardar los datos de PostgreSQL
   const [allData, setAllData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 2. Traemos los datos de tu API al cargar la página
+  // 2. Traer los datos de tu API (Node.js) al cargar la página
   useEffect(() => {
     const fetchRealData = async () => {
       try {
         const response = await fetch('http://localhost:3001/api/datos');
         const realData = await response.json();
         
-        // Aseguramos el formato de fecha que usa tu Dashboard (YYYY-MM-DD)
+        // Aseguramos el formato de fecha
         const formattedData = realData.map(item => ({
           ...item,
           fecha: new Date(item.fecha).toISOString().split("T")[0]
@@ -183,8 +42,19 @@ export default function SalesDashboard() {
 
     fetchRealData();
   }, []);
-  
+
+  // 3. Pantalla de carga mientras trae los datos
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0c0c1d", color: "#e2e8f0", display: "flex", justifyContent: "center", alignItems: "center", fontSize: "20px" }}>
+        Cargando datos desde Railway... ⏳
+      </div>
+    );
+  }
+
+  // 👇 DE AQUÍ PARA ABAJO, DEJA TUS ESTADOS COMO LOS TENÍAS 👇
   const [activeTab, setActiveTab] = useState("resumen");
+  // const [sucursal, setSucursal] = useState("Todas");
   const [sucursal, setSucursal] = useState("Todas");
   const [kpi, setKpi] = useState("monto");
   const isMoney = kpi === "monto";
